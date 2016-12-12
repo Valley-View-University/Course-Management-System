@@ -1,0 +1,1006 @@
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Web.Mvc;
+using CourseManagementSystemWebApplication.Models;
+
+namespace CourseManagementSystemWebApplication.Controllers
+{
+    public class CourseController : Controller
+    {
+        private CourseDBContext db = new CourseDBContext();
+        //
+        // GET: /Course/
+        public ActionResult Index()
+        {
+            var courses = db.Courses.Include(c => c.Department).Include(c => c.Semester);
+            return View(courses.ToList());
+        }
+        //
+        // GET: /Course/Details/5
+        public ActionResult Details(int id = 0)
+        {
+            Course course = db.Courses.Find(id);
+            if (course == null)
+            {
+                return HttpNotFound();
+            }
+            return View(course);
+        }
+        //
+        // GET: /Course/Create
+        public ActionResult Create()
+        {
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code");
+            ViewBag.SemesterId = new SelectList(db.Semesters, "SemesterId", "Name");
+            return View();
+        }
+        //
+        // POST: /Course/Create
+        [HttpPost]
+        public ActionResult Create(Course course)
+        {
+            PopulateDropdownList(course);
+            if (ModelState.IsValid)
+            {
+                db.Courses.Add(course);
+                db.SaveChanges();
+                ViewBag.Message = "This course " + course.Name + " has been saved.";
+                return View(course);
+            }
+
+            return View(course);
+        }
+
+        private void PopulateDropdownList(Course course)
+        {
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code", course.DepartmentId);
+            ViewBag.SemesterId = new SelectList(db.Semesters, "SemesterId", "Name", course.SemesterId);
+        }
+
+        //
+        // GET: /Course/Edit/5
+        public ActionResult Edit(int id = 0)
+        {
+            Course course = db.Courses.Find(id);
+            if (course == null)
+            {
+                return HttpNotFound();
+            }
+            PopulateDropdownList(course);
+            return View(course);
+        }
+        //
+        // POST: /Course/Edit/5
+        [HttpPost]
+        public ActionResult Edit(Course course)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(course).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            PopulateDropdownList(course);
+            return View(course);
+        }
+        //
+        // GET: /Course/Delete/5
+        public ActionResult Delete(int id = 0)
+        {
+            Course course = db.Courses.Find(id);
+            if (course == null)
+            {
+                return HttpNotFound();
+            }
+            return View(course);
+        }
+        //
+        // POST: /Course/Delete/5
+        [HttpPost, ActionName("Delete")]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            Course course = db.Courses.Find(id);
+            db.Courses.Remove(course);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+        protected override void Dispose(bool disposing)
+        {
+            db.Dispose();
+            base.Dispose(disposing);
+        }
+
+        public JsonResult CheckCourseCode(string code)
+        {
+            var result = db.Courses.Count(c => c.Code == code) == 0;
+            return Json(result, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult CheckCourseName(string name)
+        {
+            var result = db.Courses.Count(c => c.Name == name) == 0;
+            return Json(result, JsonRequestBehavior.AllowGet);
+        }
+
+        public ActionResult CourseAssign()
+        {
+            PopulateDropdownList();
+            ViewBag.Message = "";
+            return View();
+        }
+
+        private void PopulateDropdownList()
+        {
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code");
+            ViewBag.LecturerId = new SelectList("", "LecturerId", "Name");
+            ViewBag.CourseId = new SelectList("", "CourseId", "Code");
+        }
+
+        //
+        // POST: /Course/Create
+        [HttpPost]
+        public ActionResult CourseAssign(Department aDepartment, Course aCourse, Lecturer aLecturer)
+        {
+            PopulateDropdownList();
+            if (aDepartment.DepartmentId == 0 || aCourse.CourseId == 0 || aLecturer.LecturerId == 0)
+            {
+                ViewBag.Message = "All fields are required";
+                return View();
+            }
+
+            aDepartment = db.Departments.Find(aDepartment.DepartmentId);
+            aLecturer = db.Lecturers.Find(aLecturer.LecturerId);
+            aCourse = db.Courses.Find(aCourse.CourseId);
+
+            if (aCourse.Lecturer != null)
+            {
+                PopulateDrodownList(aCourse,aLecturer);
+                ViewBag.Message = "Course " + aCourse.Code + " already assigned. Please take another course for "+aLecturer.Name;
+                return View();
+
+            }
+            aCourse.Lecturer = aLecturer;
+            aCourse.Department = aDepartment;
+
+            if (!ModelState.IsValid)
+            {
+                db.Entry(aCourse).State = EntityState.Modified;
+                db.SaveChanges();
+                aLecturer.RemainingCredit -= aCourse.Credit;
+                db.Entry(aLecturer).State = EntityState.Modified;
+                db.SaveChanges();
+                ViewBag.Success = "Course " + aCourse.Code + " assigned to " + aLecturer.Name;
+                return View();
+            }
+            return View();
+        }
+
+
+        private void PopulateDrodownList(Course aCourse, Lecturer aLecturer)
+        {
+            var Lecturers = db.Lecturers.Where(t => t.DepartmentId == aLecturer.DepartmentId).ToList();
+            var courses = db.Courses.Where(s => s.DepartmentId == aCourse.DepartmentId).ToList();
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code");using System.Data;
+using System.Linq;
+using System.Web.Mvc;
+using CourseManagementSystemWebApplication.Models;
+
+namespace CourseManagementSystemWebApplication.Controllers
+{
+    public class DepartmentController : Controller
+    {
+        private CourseDBContext db = new CourseDBContext();
+
+        //
+        // GET: /Department/
+
+        public ActionResult Index()
+        {
+            return View(db.Departments.ToList());
+        }
+
+        //
+        // GET: /Department/Details/5
+
+        public ActionResult Details(int id = 0)
+        {
+            Department department = db.Departments.Find(id);
+            if (department == null)
+            {
+                return HttpNotFound();
+            }
+            return View(department);
+        }
+
+        //
+        // GET: /Department/Create
+
+        public ActionResult Create()
+        {
+            return View();
+        }
+
+        //
+        // POST: /Department/Create
+
+        [HttpPost]
+        public ActionResult Create(Department department)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Departments.Add(department);
+                db.SaveChanges();
+                ViewBag.Message = department.Code + " has been saved into database.";
+                return View();
+            }
+
+            return View(department);
+        }
+
+        //
+        // GET: /Department/Edit/5
+
+        public ActionResult Edit(int id = 0)
+        {
+            Department department = db.Departments.Find(id);
+            if (department == null)
+            {
+                return HttpNotFound();
+            }
+            return View(department);
+        }
+
+        //
+        // POST: /Department/Edit/5
+
+        [HttpPost]
+        public ActionResult Edit(Department department)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(department).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            return View(department);
+        }
+
+        //
+        // GET: /Department/Delete/5
+
+        public ActionResult Delete(int id = 0)
+        {
+            Department department = db.Departments.Find(id);
+            if (department == null)
+            {
+                return HttpNotFound();
+            }
+            return View(department);
+        }
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using CourseManagementSystemWebApplication.Models;
+using RazorPDF;
+using iTextSharp;
+using iTextSharp.text;
+
+namespace CourseManagementSystemWebApplication.Controllers
+{
+    public class EnrollmentController : Controller
+    {
+        private CourseDBContext db = new CourseDBContext();
+
+        //
+        // GET: /Enrollment/
+
+        public ActionResult Index()
+        {
+            var enrollments = db.Enrollments.Include(e => e.Student).Include(e => e.Course);
+            return View(enrollments.ToList());
+        }
+
+        //
+        // GET: /Enrollment/Details/5
+
+        public ActionResult Details(int id = 0)
+        {
+            Enrollment enrollment = db.Enrollments.Find(id);
+            if (enrollment == null)
+            {
+                return HttpNotFound();
+            }
+            return View(enrollment);
+        }
+
+        //
+        // GET: /Enrollment/Create
+
+        public ActionResult Create()
+        {
+            ViewBag.StudentId = new SelectList(db.Students, "StudentId", "RegNo");
+            ViewBag.CourseId = new SelectList("", "CourseId", "Code");
+            return View();
+        }
+
+        //
+        // POST: /Enrollment/Create
+
+        [HttpPost]
+        public ActionResult Create(Student aStudent,Course aCourse,DateTime date)
+        {
+            Create();
+            if (aStudent.StudentId == 0 || aCourse.CourseId == 0)
+            {
+                ViewBag.ErrorMessage = "All fields are required.";
+                return View();
+            }
+            Enrollment enrollment = new Enrollment();
+            enrollment.StudentId = aStudent.StudentId;
+            enrollment.CourseId = aCourse.CourseId;
+            enrollment.Date = date;
+            Student student = (db.Students.Where(s => s.StudentId == aStudent.StudentId)).Single();
+            Course course = db.Courses.Single(c => c.CourseId == aCourse.CourseId);
+            bool check = db.Enrollments.Count(c => c.StudentId == aStudent.StudentId && c.CourseId == aCourse.CourseId) == 0;
+            if (ModelState.IsValid)
+            {
+                db.Enrollments.Add(enrollment);
+                db.SaveChanges();
+                ViewBag.Message = course.Code + " has assigned for " + student.RegNo;
+                return View(enrollment);
+            }
+            
+            enrollment.Student = student;
+            enrollment.Course = course;
+            ViewBag.ErrorMessage = student.RegNo+" has already enrolled for "+course.Code;
+            return View(enrollment);
+        }
+
+        //
+        // GET: /Enrollment/Edit/5
+
+        public ActionResult Edit(int id = 0)
+        {
+            Enrollment enrollment = db.Enrollments.Find(id);
+            if (enrollment == null)
+            {
+                return HttpNotFound();
+            }
+            ViewBag.StudentId = new SelectList(db.Students, "StudentId", "RegNo", enrollment.StudentId);
+            ViewBag.CourseId = new SelectList(db.Courses, "CourseId", "Code", enrollment.CourseId);
+            return View(enrollment);
+        }
+
+        //
+        // POST: /Enrollment/Edit/5
+
+        [HttpPost]
+        public ActionResult Edit(Enrollment enrollment)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(enrollment).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            ViewBag.StudentId = new SelectList(db.Students, "StudentId", "RegNo", enrollment.StudentId);
+            ViewBag.CourseId = new SelectList(db.Courses, "CourseId", "Code", enrollment.CourseId);
+            return View(enrollment);
+        }
+
+        //
+        // GET: /Enrollment/Delete/5
+
+        public ActionResult Delete(int id = 0)
+        {
+            Enrollment enrollment = db.Enrollments.Find(id);
+            if (enrollment == null)
+            {
+                return HttpNotFound();
+            }
+            return View(enrollment);
+        }
+
+        //
+        // POST: /Enrollment/Delete/5
+
+        [HttpPost, ActionName("Delete")]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            Enrollment enrollment = db.Enrollments.Find(id);
+            db.Enrollments.Remove(enrollment);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+
+        public ActionResult SelectCourseForStudent(int? studentId)
+        {
+            Student student = (db.Students.Where(s => s.StudentId == studentId)).Single();
+            //List<Course> queryable = db.Courses.Where(c => c.DepartmentId == student.DepartmentId).ToList();
+            var courses = db.Courses.Where(c => c.DepartmentId == student.DepartmentId);
+            ViewBag.CourseId = new SelectList(courses.ToArray(), "CourseId", "Code");
+            return PartialView("_Course", ViewData["CourseId"]);
+        }
+
+        public ActionResult SelectEnrolledCourseForStudent(int? studentId)
+        {
+            var courses = GetEnrolledCourses(studentId);
+            ViewBag.CourseId = new SelectList(courses.ToArray(), "CourseId", "Code");
+            return PartialView("_Course", ViewData["CourseId"]);
+        }
+
+        private List<Course> GetEnrolledCourses(int? studentId)
+        {
+            List<Enrollment> enrollments = db.Enrollments.Where(e => e.StudentId == studentId).ToList();
+            List<Course> courseList = db.Courses.ToList();
+            List<Course> courses = new List<Course>();
+            foreach (Course course in courseList)
+            {
+                foreach (Enrollment enrollment in enrollments)
+                {
+                    if (enrollment.CourseId == course.CourseId)
+                    {
+                        courses.Add(enrollment.Course);
+                    }
+                }
+            }
+            return courses;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            db.Dispose();
+            base.Dispose(disposing);
+        }
+
+        public ActionResult SelectStudent(int? studentId)
+        {
+            Student student = (db.Students.Where(s => s.StudentId == studentId)).Single();
+            Enrollment enrollment = new Enrollment();
+            enrollment.Student = student;
+            return PartialView("~/Views/Shared/_StudentDetails.cshtml", enrollment);
+        }
+
+        public ActionResult StudentResultEntry()
+        {
+            ViewBag.StudentId = new SelectList(db.Students, "StudentId", "RegNo");
+            ViewBag.CourseId = new SelectList("", "CourseId", "Code");
+            ViewBag.GradeLetterId = new SelectList(db.GradeLetters, "GradeLetterId", "Name");
+            return View();
+        }
+
+        [HttpPost]
+        public ActionResult StudentResultEntry(Enrollment enrollment)
+        {
+            LoadDropdownList(enrollment);
+            
+            if (enrollment.StudentId == 0 || enrollment.CourseId == 0 || enrollment.GradeLetterId == null)
+            {
+                ViewBag.Message = "All fields are required.";
+                return View();
+            }
+            GradeLetter gradeLetter = (db.GradeLetters.Where(g => g.GradeLetterId == enrollment.GradeLetterId)).Single();
+            Course course = (db.Courses.Where(c => c.CourseId == enrollment.CourseId)).Single();
+            Student student = (db.Students.Where(s => s.StudentId == enrollment.StudentId)).Single();
+            Enrollment enrolled = (db.Enrollments.Where(e => (e.StudentId == student.StudentId && e.CourseId == course.CourseId))).Single();
+
+            bool check = db.Enrollments.Count(e => (e.StudentId == student.StudentId && e.CourseId == course.CourseId && e.GradeLetter != null)) == 1;
+            enrollment = enrolled;
+            enrollment.GradeLetter = gradeLetter;
+            enrollment.GradeLetterId = gradeLetter.GradeLetterId;
+            enrollment.Student = enrolled.Student;
+            enrollment.StudentId = enrolled.StudentId;
+            enrollment.Course = course;
+            if (!check)
+            {
+                db.Entry(enrollment).State = EntityState.Modified;
+                db.SaveChanges();
+                //return RedirectToAction("Index");
+                ViewBag.Saved = student.Name+" got "+gradeLetter.Name+" in "+course.Name;
+                return View(enrollment);
+            }
+            
+            ViewBag.Message = course.Name + " course grade already assigned for "+student.Name;
+            return View(enrollment);
+        }
+
+        private void LoadDropdownList(Enrollment enrollment)
+        {
+            List<Course> enrolledCourses = GetEnrolledCourses(enrollment.StudentId);using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using CourseManagementSystemWebApplication.Models;
+
+namespace CourseManagementSystemWebApplication.Controllers
+{
+    public class RoomAllocationController : Controller
+    {
+        private CourseDBContext db = new CourseDBContext();
+
+        //
+        // GET: /RoomAllocation/
+
+        public ActionResult Index()
+        {
+            var classroomallocations = db.ClassRoomAllocations.Include(c => c.Department).Include(c => c.Course).Include(c => c.ClassRoom).Include(c => c.Day);
+            return View(classroomallocations.ToList());
+        }
+
+        //
+        // GET: /RoomAllocation/Details/5
+
+        public ActionResult Details(int id = 0)
+        {
+            ClassRoomAllocation classroomallocation = db.ClassRoomAllocations.Find(id);
+            if (classroomallocation == null)
+            {
+                return HttpNotFound();
+            }
+            return View(classroomallocation);
+        }
+
+        //
+        // GET: /RoomAllocation/Create
+
+        public ActionResult Create()
+        {
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code");
+            ViewBag.CourseId = new SelectList("", "CourseId", "Code");
+            ViewBag.ClassRoomId = new SelectList(db.ClassRooms, "ClassRoomId", "RoomNo");
+            ViewBag.DayId = new SelectList(db.Days, "DayId", "Name");
+            return View();
+        }
+
+        //
+        // POST: /RoomAllocation/Create
+
+        [HttpPost]
+        public ActionResult Create(ClassRoomAllocation classRoomAllocation)
+        {
+            Create();
+            if (classRoomAllocation.DepartmentId == 0 || classRoomAllocation.CourseId == 0 || classRoomAllocation.ClassRoomId == 0 || classRoomAllocation.DayId == 0)
+            {
+                return View();
+            }
+            string timeFrom = classRoomAllocation.TimeFrom;
+            string timeTo = classRoomAllocation.TimeTo;
+
+            Course aCourse = (db.Courses.Where(course => course.CourseId == classRoomAllocation.CourseId)).Single();
+            Department aDepartment = (db.Departments.Where(d => d.DepartmentId == aCourse.DepartmentId)).Single();
+            Day day = db.Days.Single(d => d.DayId == classRoomAllocation.DayId);
+            ClassRoom classRoom = db.ClassRooms.Single(c => c.ClassRoomId == classRoomAllocation.ClassRoomId);
+            List<ClassRoomAllocation> allocationRooms = (db.ClassRoomAllocations.Where(c =>
+                (c.DayId == classRoomAllocation.DayId &&
+                 c.ClassRoomId == classRoomAllocation.ClassRoomId))).ToList();
+
+            List<ClassRoomAllocation> allocationCourses =
+                db.ClassRoomAllocations.Where(
+                    c => (c.DayId == classRoomAllocation.DayId && c.CourseId == classRoomAllocation.CourseId)).ToList();
+            string timeFrom2 = "";
+            string timeTo2 = "";
+            int id=0;
+            bool confirm = timeFrom == timeTo;
+
+            foreach (ClassRoomAllocation room in allocationRooms)
+            {
+                bool check = CheckOverlapping(timeFrom, timeTo, room.TimeFrom, room.TimeTo);
+                if (check)
+                {
+                    confirm = true;
+                    timeFrom2 = room.TimeFrom;
+                    timeTo2 = room.TimeTo;
+                    id = room.CourseId;
+                }
+            }
+
+            foreach (ClassRoomAllocation room in allocationCourses)
+            {
+                bool check = CheckOverlapping(timeFrom, timeTo, room.TimeFrom, room.TimeTo);
+                if (check)
+                {
+                    confirm = true;
+                }
+            }
+
+            if (!confirm)
+            {
+                LoadDropDownList(classRoomAllocation);
+                classRoomAllocation.Department = aDepartment;
+                if (ModelState.IsValid)
+                {
+                    db.ClassRoomAllocations.Add(classRoomAllocation);
+                    db.SaveChanges();
+                    if (aCourse.Lecturer == null)
+                    {
+                        ViewBag.Success = aCourse.Code + " has been allocated in " + classRoom.RoomNo +
+                                          " class room. And the schedual is " + day.Name + " at " +
+                                          classRoomAllocation.TimeFrom + "-" + classRoomAllocation.TimeTo +
+                                          " and Lecturer is not assigned yet.";
+                    }
+                    else
+                    {
+                        ViewBag.Success = aCourse.Code + " has been allocated in " + classRoom.RoomNo +
+                                          " class room. And the schedual is " + day.Name + " at " +
+                                          classRoomAllocation.TimeFrom + "-" + classRoomAllocation.TimeTo +
+                                          " and the Lecturer of this course is" + aCourse.Lecturer.Name;
+                    }
+                    return View();
+                }
+            }
+            Course course2 = db.Courses.Single(c => c.CourseId == id);
+            LoadDropDownList(classRoomAllocation);
+            if (course2.Lecturer == null)
+            {
+                ViewBag.ErrorMessage = "This Room: " + classRoom.RoomNo + " has already allocated at " + timeFrom2 + "-" + timeTo2 + " for " + course2.Code +
+                                   " and Lecturer is not assigned yet.";
+            }
+            else
+            {
+                ViewBag.ErrorMessage = "This Room: " + classRoom.RoomNo + " has already allocated at " + timeFrom2 + "-" + timeTo2 + " for " + course2.Code +
+                                   " and the Lecturer of this course is "+course2.Lecturer.Name;
+            }
+            
+            return View(classRoomAllocation);
+        }
+
+        private void LoadDropDownList(ClassRoomAllocation classRoomAllocation)
+        {
+            var courses = db.Courses.Where(s => s.DepartmentId == classRoomAllocation.DepartmentId);
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code", classRoomAllocation.DepartmentId);
+            ViewBag.CourseId = new SelectList(courses.ToArray(), "CourseId", "Code", classRoomAllocation.CourseId);
+            ViewBag.ClassRoomId = new SelectList(db.ClassRooms, "ClassRoomId", "RoomNo", classRoomAllocation.ClassRoomId);
+            ViewBag.DayId = new SelectList(db.Days, "DayId", "Name", classRoomAllocation.DayId);
+        }
+
+        private bool CheckOverlapping(string givenTimeFrom, string givenTimeTo, string currentTimeFrom, string currentTimeTo)
+        {
+            int[] timeFrom = new int[10000];
+            int[] timeTo = new int[10000];
+
+            for (int i = 0; i < 9995; i++)
+            {
+                timeFrom[i] = 0;
+                timeTo[i] = 0;
+            }
+
+            int givenTF = TimeConversion(givenTimeFrom);
+            int givenTT = TimeConversion(givenTimeTo);
+            int currentTF = TimeConversion(currentTimeFrom);
+            int currentTT = TimeConversion(currentTimeTo);
+
+            if (givenTF > givenTT)
+            {
+                for (int i = 0; i <= givenTT; i++)
+                {
+                    timeFrom[i] += 1;
+                }
+                for (int i = givenTT; i <= 1439; i++)
+                {
+                    timeFrom[i] += 1;
+                }
+            }
+            for (int i = givenTF; i <= givenTT; i++)
+            {
+                timeFrom[i] += 1;
+            }
+            if (currentTF > currentTT)
+            {
+                for (int i = 0; i <= currentTT; i++)
+                {
+                    timeFrom[i] += 1;
+                }
+                for (int i = currentTT; i <= 1439; i++)
+                {
+                    timeFrom[i] += 1;
+                }
+            }
+            for (int i = currentTF; i <= currentTT; i++)
+            {
+                timeFrom[i] += 1;
+            }
+
+            Boolean confirmed = false;
+
+            for (int i = 0; i < 1440; i++)
+            {
+                if (timeFrom[i] > 1)
+                {
+                    confirmed = true;
+                }
+            }
+            return confirmed;
+        }
+
+        private int TimeConversion(string givenTimeFrom)
+        {
+            int hour = 0;
+            int min = 0;
+            int count = 0;
+
+            for (int i = 0; i < givenTimeFrom.Length; i++)
+            {
+                if (givenTimeFrom[i] >='0' && givenTimeFrom[i] <='9')
+                {
+                    if (count == 0)
+                    {
+                        hour *= 10;
+                        hour += (givenTimeFrom[i] - '0');
+                    }
+                    if (count == 1)
+                    {
+                        min *= 10;
+                        min += (givenTimeFrom[i] - '0');
+                    }
+                }
+                else
+                {
+                    count++;
+                }
+            }
+            hour *= 60;
+            min += hour;
+            return min;
+        }
+
+
+        public ActionResult SelectDepartmentForCourse(int? departmentId)
+        {
+            var courses = db.Courses.Where(s => s.DepartmentId == departmentId);
+            ViewBag.CourseId = new SelectList(courses.ToArray(), "CourseId", "Code");
+            return PartialView("_Course", ViewData["CourseId"]);
+        }
+        
+
+        //
+        // GET: /RoomAllocation/Edit/5
+
+        public ActionResult Edit(int id = 0)
+        {
+            ClassRoomAllocation classroomallocation = db.ClassRoomAllocations.Find(id);
+            if (classroomallocation == null)
+            {
+                return HttpNotFound();
+            }
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code", classroomallocation.DepartmentId);
+            ViewBag.CourseId = new SelectList(db.Courses, "CourseId", "Code", classroomallocation.CourseId);
+            ViewBag.ClassRoomId = new SelectList(db.ClassRooms, "ClassRoomId", "RoomNo", classroomallocation.ClassRoomId);
+            ViewBag.DayId = new SelectList(db.Days, "DayId", "Name", classroomallocation.DayId);
+            return View(classroomallocation);
+        }
+
+        //
+        // POST: /RoomAllocation/Edit/5
+
+        [HttpPost]
+        public ActionResult Edit(ClassRoomAllocation classroomallocation)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(classroomallocation).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code", classroomallocation.DepartmentId);
+            ViewBag.CourseId = new SelectList(db.Courses, "CourseId", "Code", classroomallocation.CourseId);
+            ViewBag.ClassRoomId = new SelectList(db.ClassRooms, "ClassRoomId", "RoomNo", classroomallocation.ClassRoomId);
+            ViewBag.DayId = new SelectList(db.Days, "DayId", "Name", classroomallocation.DayId);
+            return View(classroomallocation);
+        }
+
+        //
+        // GET: /RoomAllocation/Delete/5
+
+        public ActionResult Delete(int id = 0)
+        {
+            ClassRoomAllocation classroomallocation = db.ClassRoomAllocations.Find(id);
+            if (classroomallocation == null)
+            {
+                return HttpNotFound();
+            }
+            return View(classroomallocation);
+        }
+
+        //
+        // POST: /RoomAllocation/Delete/5
+
+        [HttpPost, ActionName("Delete")]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            ClassRoomAllocation classroomallocation = db.ClassRoomAllocations.Find(id);
+            db.ClassRoomAllocations.Remove(classroomallocation);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+        public ActionResult ViewClassSchedualInformation(Department aDepartment)
+        {
+            ViewBag.DepartmentId = new SelectList(db.Departments, "DepartmentId", "Code");
+
+            List<Course> courses = db.Courses.Where(c => c.DepartmentId == aDepartment.DepartmentId).ToList();
+            List<ClassRoomAllocation> classRoomAllocations = db.ClassRoomAllocations.ToList();
+
+            List<string> codes = new List<string>();
+            List<string> names = new List<string>();
+            List<string> scheduals = new List<string>();
+
+            foreach (Course course in courses)
+            {
+                string schedual = string.Empty;
+                foreach (ClassRoomAllocation classRoomAllocation in classRoomAllocations)
+                {
+                    int count = 0;
+                    if (classRoomAllocation.CourseId == course.CourseId)
+                    {
+                        if (count == 0)
+                        {
+                            schedual += "r.no: ";
+                            count++;
+                        }
+
+                        ClassRoom classRoom = (db.ClassRooms.Where(c => c.ClassRoomId == classRoomAllocation.ClassRoomId)).Single();
+                        
+                        schedual += (classRoom.RoomNo + "," + classRoomAllocation.Day.Name + "," +
+                                        classRoomAllocation.TimeFrom + "-" + classRoomAllocation.TimeTo+";");
+                    }
+                    if (schedual == "r.no: ") schedual = string.Empty;
+                }
+                if (schedual != string.Empty)
+                {
+                    codes.Add(course.Code);
+                    names.Add(course.Name);
+                    scheduals.Add(schedual);
+                }
+            }
+
+            ViewBag.CourseCodes = codes;
+            ViewBag.CourseNames = names;
+            ViewBag.Scheduals = scheduals;
+
+            return View();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            db.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+}
+            ViewBag.StudentId = new SelectList(db.Students, "StudentId", "RegNousing System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+
+namespace CourseManagementSystemWebApplication.Controllers
+{
+    public class HomeController : Controller
+    {
+        public ActionResult Index()
+        {
+            ViewBag.Message = "Modify this template to jump-start your ASP.NET MVC application.";
+
+            return View();
+        }
+
+        public ActionResult About()
+        {
+            ViewBag.Message = "Your app description page.";
+
+            return View();
+        }
+
+        public ActionResult Contact()
+        {
+            ViewBag.Message = "Your contact page.";
+
+            return View();
+        }
+    }
+}
+
+            ViewBag.CourseId = new SelectList(enrolledCourses, "CourseId", "Code");
+            ViewBag.GradeLetterId = new SelectList(db.GradeLetters, "GradeLetterId", "Name");
+        }
+
+        public ActionResult ViewResult(int? studentId)
+        {
+            ViewBag.StudentId = new SelectList(db.Students, "StudentId", "RegNo");
+            var enrollments = db.Enrollments.Where(e => e.StudentId == studentId);
+            return View(enrollments.ToList());
+        }
+
+        [HttpPost]
+        public ActionResult ViewResult(int studentId)
+        {
+            var enrollments = db.Enrollments.Where(e => e.StudentId == studentId);
+            var pdf = new PdfResult(enrollments.ToArray(), "ViewPDFResult");
+            return pdf;
+        }
+
+        public PartialViewResult SelectEnrolledStudentInformation(int? studentId)
+        {
+            var enrollments = db.Enrollments.Where(e => e.StudentId == studentId);
+            return PartialView("_CourseInformation", enrollments.ToList());
+        }
+
+        public ActionResult SelectStudentDetails(int? studentId)
+        {
+            var enrollments = db.Enrollments.Include(e => e.Student).Where(e => e.StudentId == studentId).Include(e => e.Course).Include(e => e.GradeLetter);
+            return PartialView("_StudentDetails", enrollments.ToList());
+        }
+    }
+}
+        //
+        // POST: /Department/Delete/5
+
+        [HttpPost, ActionName("Delete")]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            Department department = db.Departments.Find(id);
+            db.Departments.Remove(department);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            db.Dispose();
+            base.Dispose(disposing);
+        }
+
+        public JsonResult CheckDepartmentName(string code)
+        {
+            var result = db.Departments.Count(d => d.Code == code) == 0;
+            return Json(result, JsonRequestBehavior.AllowGet);
+        }
+
+        public JsonResult CheckDepartmentCode(string name)
+        {
+            var result = db.Departments.Count(d => d.Name == name) == 0;
+            return Json(result, JsonRequestBehavior.AllowGet);
+        }
+    }
+}
+            ViewBag.LecturerId = new SelectList(Lecturers, "LecturerId", "Name", aLecturer.Name);
+            ViewBag.CourseId = new SelectList(courses, "CourseId", "Code", aCourse.Code);
+        }
+
+        public ActionResult SelectDepartmentForLecturer(int? departmentId)
+        {
+            var Lecturers = db.Lecturers.Where(t => t.DepartmentId == departmentId);
+            ViewBag.LecturerId = new SelectList(Lecturers.ToArray(), "LecturerId", "Name");
+            return PartialView("_Lecturer", ViewData["LecturerId"]);
+        }
+        public ActionResult SelectDepartmentForCourse(int? departmentId)
+        {
+            var courses = db.Courses.Where(s => s.DepartmentId == departmentId);
+            ViewBag.CourseId = new SelectList(courses.ToArray(), "CourseId", "Code");
+            return PartialView("_Course", ViewData["CourseId"]);
+        }
+        public ActionResult SelectLecturer(int? LecturerId)
+        {
+            Lecturer Lecturer = db.Lecturers.FirstOrDefault(t => t.LecturerId == LecturerId);
+            /*Course aCourse = new Course();
+            aCourse.Lecturer = Lecturer;*/
+            return PartialView("_LecturerDetails", Lecturer);
+        }
+        public ActionResult SelectCourse(int? courseId)
+        {
+            Course course = db.Courses.FirstOrDefault(c => c.CourseId == courseId);
+            return PartialView("_CourseDetails", course);
+        }
+
+    }
+}
